@@ -238,13 +238,29 @@ function lockChatPanel() {
         </div>
     `;
     apiKeySection.style.display = 'flex';
+
+    // Reattach event listeners
+    const newUnlockBtn = apiKeySection.querySelector('.unlock-btn');
+    const newApiKeyInput = apiKeySection.querySelector('#api-key-input');
+
+    // Handle unlock button click
+    newUnlockBtn.addEventListener('click', handleUnlock);
+
+    // Handle enter key in input
+    newApiKeyInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            handleUnlock();
+        }
+    });
 }
 
 // Unlock the chat panel
 function unlockChatPanel() {
-    if (apiKeySection) apiKeySection.style.display = 'none';
-    if (chatMessages) chatMessages.style.display = 'block';
-    if (chatInputContainer) chatInputContainer.style.display = 'flex';
+    apiKeySection.style.display = 'none';
+    chatMessages.style.display = 'block';
+    chatInputContainer.style.display = 'flex';
+    chatMessages.innerHTML = ''; // Clear any previous messages
+    addMessageToChat('AI Assistant is ready to help! Type your message below.', 'assistant');
 }
 
 // Validate API key
@@ -252,13 +268,17 @@ async function validateAPIKey(key) {
     try {
         const response = await fetch('https://api.openai.com/v1/models', {
             headers: {
-                'Authorization': `Bearer ${key}`,
-                'Content-Type': 'application/json'
+                'Authorization': `Bearer ${key}`
             }
         });
-        return response.ok;
+
+        if (!response.ok) {
+            throw new Error('Invalid API key');
+        }
+
+        return true;
     } catch (error) {
-        return false;
+        throw new Error('Invalid API key');
     }
 }
 
@@ -509,39 +529,22 @@ function updateFormatButtons() {
 
 // Handle API key unlock
 async function handleUnlock() {
-    const key = apiKeyInput?.value.trim();
+    const apiKeyInput = document.querySelector('#api-key-input');
+    const key = apiKeyInput.value.trim();
+    
     if (!key) {
-        alert('Please enter your OpenAI API key');
+        alert('Please enter an API key');
         return;
     }
 
-    if (unlockBtn) {
-        unlockBtn.textContent = 'Validating...';
-        unlockBtn.disabled = true;
-    }
-
     try {
-        const isValid = await validateAPIKey(key);
-        
-        if (isValid) {
-            apiKey = key;
-            localStorage.setItem('openai_api_key', key);
-            unlockChatPanel();
-            addMessageToChat('AI Assistant unlocked and ready to help!', 'assistant');
-        } else {
-            alert('Invalid API key. Please check your key and try again.');
-            if (unlockBtn) {
-                unlockBtn.textContent = 'Unlock';
-                unlockBtn.disabled = false;
-            }
-        }
+        await validateAPIKey(key);
+        apiKey = key;
+        localStorage.setItem('openai_api_key', key);
+        unlockChatPanel();
     } catch (error) {
-        console.error('Error validating API key:', error);
-        alert('Error validating API key. Please try again.');
-        if (unlockBtn) {
-            unlockBtn.textContent = 'Unlock';
-            unlockBtn.disabled = false;
-        }
+        alert('Invalid API key. Please check and try again.');
+        apiKeyInput.value = '';
     }
 }
 
